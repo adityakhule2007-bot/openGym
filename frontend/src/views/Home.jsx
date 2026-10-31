@@ -193,6 +193,10 @@ export default function Home() {
       </div>
     )}
 
+    <div className="card tappable" style={{ cursor: 'pointer' }} {...tappable(() => nav('/nutrition'))}>
+      <div className="row between"><div><b>{t('Nutrition')}</b><div className="small muted">{t('Meals, macros, water and fuel tips')}</div></div><Icon name="chevronRight" /></div>
+    </div>
+
     {S.showWeightCard !== false && <div className="card">
       <div className="row between bw-head" style={{ marginBottom: 6 }}>
         <h2 style={{ margin: 0 }}>{t('Body weight')}</h2>

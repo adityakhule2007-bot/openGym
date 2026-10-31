@@ -10,12 +10,16 @@ import { startNativeKeyboard } from './lib/native-keyboard.js'
 import './admin.css'
 import './coach.css'
 import './index.css'
+import './glass.css'
+import { applyGlass, glassOn } from './lib/nutrition/glass.js'
 import { hideBoot, handOverFromLaunchScreen } from './lib/boot.js'
 
 // App.jsx restores per-route scroll itself; the browser's own attempt races it.
 // A script that dies before the app draws would otherwise leave the boot logo lifting forever.
 window.addEventListener('error', hideBoot, { once: true })
 handOverFromLaunchScreen()
+
+if (glassOn()) applyGlass(true)
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 

@@ -1,0 +1,46 @@
+/* Nutrition screen. Uses openGym tokens (--acc, --label, --surface...), so it follows light/dark and the accent.
+   With html[data-glass] (glass.css) the cards turn into liquid glass; the screen is lightly glassy either way. */
+.ng .card { position: relative }
+.ng-seg { display:flex; gap:4px; padding:3px; border-radius:var(--r-lg); background:var(--surface-3); margin:4px 0 12px }
+.ng-seg button { flex:1; border:0; background:none; color:var(--label-2); padding:8px 0; border-radius:calc(var(--r-lg) - 3px); font:inherit; font-weight:600 }
+.ng-seg button.on { background:var(--surface); color:var(--label); box-shadow:0 1px 4px rgba(0,0,0,.25) }
+.ng-row { display:flex; gap:8px; align-items:center }
+.ng-sum { display:flex; gap:16px; align-items:center }
+.ng-ringwrap { position:relative; width:128px; height:128px; flex:none }
+.ng-ring { width:100%; height:100% }
+.ng-ring circle { fill:none; stroke-width:10; stroke-linecap:round }
+.ng-ring-bg { stroke:var(--surface-3) }
+.ng-ring-fg { stroke:var(--acc); transition:stroke-dasharray var(--med) var(--ease) }
+.ng-ringtxt { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center }
+.ng-ringtxt b { font-size:26px; font-weight:700 }
+.ng-ringtxt small, .ng-muted, .ng-entry small, .ng-item small { color:var(--label-2); font-size:12.5px }
+.ng-bars { flex:1; display:grid; gap:10px; min-width:0 }
+.ng-bar-top { display:flex; justify-content:space-between; gap:8px; font-size:13.5px; margin-bottom:4px }
+.ng-bar-top b { font-weight:600 }
+.ng-track { height:8px; border-radius:99px; background:var(--surface-3); overflow:hidden }
+.ng-track i { display:block; height:100%; border-radius:99px; background:var(--acc); transition:width var(--med) var(--ease) }
+.ng-track i.p { background:var(--green) } .ng-track i.c { background:var(--orange) } .ng-track i.f { background:var(--pink) }
+.ng-track i.w { background:var(--teal) } .ng-track i.over { background:var(--red) }
+.ng-tips { display:grid; gap:8px; margin:12px 0 }
+.ng-tip b { display:block; margin-bottom:2px } .ng-tip p { margin:0; color:var(--label-2); font-size:14px; line-height:1.35 }
+.ng-tip.now { border-left:3px solid var(--orange) } .ng-tip.info { border-left:3px solid var(--teal) }
+.ng-water .ng-row { margin-top:10px }
+.ng-chip { border:0; border-radius:99px; padding:7px 14px; background:var(--acc-soft); color:var(--label); font:inherit; font-weight:600 }
+.ng-chip.ghost { background:var(--surface-3) }
+.ng-entry { display:grid; grid-template-columns:44px 1fr auto 34px; gap:8px; align-items:center; padding:8px 0; border-top:var(--hair) solid var(--sep) }
+.ng-entry time { color:var(--label-2); font-size:13px; font-variant-numeric:tabular-nums }
+.ng-entry span { display:block } .ng-entry b { font-weight:600 }
+.ng-nut { margin-top:10px }
+.ng-fab { position:fixed; right:18px; bottom:calc(84px + var(--sab)); width:54px; height:54px; border-radius:50%; border:0; background:var(--acc); color:var(--on-acc); display:grid; place-items:center; box-shadow:0 8px 24px rgba(0,0,0,.35); z-index:20 }
+.ng-fab svg { width:24px; height:24px }
+.ng-scrim { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60; display:flex; align-items:flex-end; justify-content:center }
+.ng-sheet { width:100%; max-width:560px; max-height:86vh; overflow:auto; background:var(--bg-el); border-radius:var(--r-xl) var(--r-xl) 0 0; padding:14px 16px calc(16px + var(--sab)) }
+.ng-sheet-hd { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px }
+.ng-in { width:100%; box-sizing:border-box; padding:11px 12px; border-radius:var(--r); border:var(--hair) solid var(--sep); background:var(--surface); color:var(--label); font:inherit }
+.ng-list { display:grid; margin-top:8px }
+.ng-item { display:flex; flex-direction:column; align-items:flex-start; gap:1px; text-align:left; border:0; background:none; color:var(--label); font:inherit; padding:10px 2px; border-top:var(--hair) solid var(--sep) }
+.ng-form { display:grid; gap:12px } .ng-form label { display:grid; gap:4px; font-size:13px; color:var(--label-2) }
+.ng-grid4 { display:grid; grid-template-columns:repeat(2,1fr); gap:10px }
+.ng-btn { flex:1; border:0; border-radius:var(--r); padding:12px; background:var(--acc); color:var(--on-acc); font:inherit; font-weight:700 }
+.ng-btn.ghost { background:var(--surface-3); color:var(--label) }
+.ng-toggle { display:flex !important; grid-auto-flow:column; align-items:center; gap:10px !important; color:var(--label) !important; font-size:15px !important }

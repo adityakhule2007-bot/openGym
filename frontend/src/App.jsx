@@ -76,6 +76,7 @@ const RoutineEdit = lazyView(() => import('./views/RoutineEdit.jsx'))
 const Stats = lazyView(() => import('./views/Stats.jsx'))
 const History = lazyView(() => import('./views/History.jsx'))
 const Library = lazyView(() => import('./views/Library.jsx'))
+const Nutrition = lazyView(() => import('./views/Nutrition.jsx'))
 const Muscles = lazyView(() => import('./views/Muscles.jsx'))
 const SettingsRoute = lazyView(() => import('./views/Settings.jsx').then(m => ({ default: m.SettingsRoute })))
 let viewsPrefetched = false
@@ -301,6 +302,7 @@ function Shell() {
       <Route path="/history" element={<History />} />
       <Route path="/library" element={<Library />} />
       <Route path="/muscles" element={<Muscles />} />
+      <Route path="/nutrition" element={<Nutrition />} />
       <Route path="/structural-balance" element={<StructuralBalance />} />
       <Route path="/progress-photos" element={<ProgressPhotos />} />
       <Route path="/measurements" element={<Measurements />} />

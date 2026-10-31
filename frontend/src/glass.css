@@ -1,0 +1,40 @@
+/* Liquid glass theme for the whole app. Off by default; html[data-glass="1"] switches it on
+   (Nutrition > Goals > "Liquid glass theme", lib/nutrition/glass.js). Only re-points tokens and adds
+   blur + specular edges, so every screen keeps its own layout. */
+html[data-glass="1"] body {
+  background:
+    radial-gradient(60% 40% at 15% 0%, var(--acc-soft), transparent 70%),
+    radial-gradient(50% 40% at 100% 30%, rgba(94,92,230,.28), transparent 70%),
+    radial-gradient(60% 50% at 40% 100%, rgba(255,55,95,.18), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+html[data-glass="1"] {
+  --surface: rgba(255,255,255,.07);
+  --surface-2: rgba(255,255,255,.12);
+  --surface-3: rgba(255,255,255,.14);
+  --bg-el: rgba(24,24,30,.72);
+  --sep: rgba(255,255,255,.16);
+  --glass-edge: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 .5px rgba(255,255,255,.14), 0 10px 30px rgba(0,0,0,.28);
+}
+html[data-glass="1"][data-theme="light"] {
+  --surface: rgba(255,255,255,.55);
+  --surface-2: rgba(255,255,255,.75);
+  --surface-3: rgba(255,255,255,.7);
+  --bg-el: rgba(255,255,255,.78);
+  --sep: rgba(60,60,67,.16);
+  --glass-edge: inset 0 1px 0 rgba(255,255,255,.9), inset 0 0 0 .5px rgba(255,255,255,.6), 0 10px 30px rgba(20,20,60,.12);
+}
+html[data-glass="1"] .card,
+html[data-glass="1"] .ng-sheet,
+html[data-glass="1"] #tabbar,
+html[data-glass="1"] .sheet {
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: var(--glass-edge);
+  border: 0;
+}
+html[data-glass="1"] .card { border-radius: var(--r-xl) }
+html[data-glass="1"] #tabbar { background: var(--bg-el) }
+@supports not (backdrop-filter: blur(1px)) { html[data-glass="1"] { --surface: var(--surface-2); --bg-el: #1c1c1e } }
+@media (prefers-reduced-transparency: reduce) { html[data-glass="1"] .card, html[data-glass="1"] #tabbar, html[data-glass="1"] .sheet { -webkit-backdrop-filter: none; backdrop-filter: none } }
