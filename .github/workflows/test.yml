@@ -461,7 +461,14 @@ jobs:
             done
             cat app/build/test-results/testSideloadDebugUnitTest/*.xml 2>/dev/null \
               | grep -o '<testsuite [^>]*' | sed -E 's/.*name="([^"]*)".*tests="([0-9]+)".*failures="([0-9]+)".*/- JVM: \1: \2 tests, \3 failed/' || true
-          } >> "$GITHUB_STEP_SUMMARY"
+                   } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openGym-debug-apk
+          path: frontend/android/app/build/outputs/apk/sideload/debug/*.apk
+          
 
   # One summary of the numbers of every suite that ran.
   report:
