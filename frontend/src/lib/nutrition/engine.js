@@ -189,10 +189,11 @@ export function scoreFood(hay, words) {
   }
   return s
 }
-export function searchFoods(core, more, query, limit = 40) {
+export function searchFoods(core, more, query, limit = 40, mine = []) {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []
   const out = []
+  for (const f of mine) { const h = f.hay || (f.hay = ((f.n || '') + ' ' + (f.brand || '')).toLowerCase()); const s = scoreFood(h, words); if (s) out.push({ s: s + 8, f }) }
   for (const f of core) { const s = scoreFood(f.hay || (f.hay = (f.n + ' ' + (f.alt || '')).toLowerCase()), words); if (s) out.push({ s: s + 3 - f.n.length / 100, f }) }
   if (more) for (const f of more) { const s = scoreFood(f.hay, words); if (s) out.push({ s: s - f.n.length / 100, f }) }
   out.sort((a, b) => b.s - a.s)
@@ -201,5 +202,87 @@ export function searchFoods(core, more, query, limit = 40) {
 // Turns a library row [name,typeIdx,[label,g,unit]|null,ean,known,values] into the food shape above.
 export function foodFromRow(r, i) {
   const sv = r[2]
-  return { id: 'x' + i, n: r[0], u: 'g', b: 100, s: sv ? sv[0] : '', sg: sv ? sv[1] : 0, ean: r[3], v: r[5], hay: r[0].toLowerCase() }
+  const g = sv && Number(sv[1]) > 0 ? Number(sv[1]) : 0
+  return { id: 'x' + i, n: r[0], u: 'g', b: 100, s: sv ? sv[0] : '', sg: g, sv: g ? [{ l: String(sv[0] || g + ' g'), g }] : [], ean: r[3], src: 'OpenNutrition', v: r[5], hay: r[0].toLowerCase() }
 }
+
+
+// ---------------------------------------------------------------- servings
+// A food is per 100 g (u 'g') or per serving (u 's', b 1). `sv` lists named servings in grams.
+// The unit picker offers each named serving, plus g / oz for gram foods; dishes are counted in servings.
+export function unitsFor(food) {
+  if (food.u === 'g') {
+    const u = (food.sv || []).filter(x => x.g > 0).map((x, i) => ({ id: 's' + i, label: x.l, per: x.g }))
+    u.push({ id: 'g', label: 'g', per: 1 }, { id: 'oz', label: 'oz', per: 28.3495 })
+    return u
+  }
+  // A dish or packaged item counts in servings. When its serving label states a weight ("100 g cooked",
+  // "1 medium (100 g edible)"), grams and ounces are offered too. A weight of an ingredient ("35 g atta") is not one.
+  const out = [{ id: 's0', label: food.s || 'serving', per: 1 }]
+  const m = (food.s || '').match(/(?:^|\()\s*(\d+(?:\.\d+)?)\s*g(?=\s*(?:\)|$|edible|cooked|raw|dry|\())/)
+  const g = m ? Number(m[1]) : 0
+  if (g > 0) out.push({ id: 'g', label: 'g', per: 1 / g }, { id: 'oz', label: 'oz', per: 28.3495 / g })
+  return out
+}
+// The amount and unit the picker starts on: one named serving when there is one, else 100 g / 1 serving.
+export function defaultAmount(food) {
+  const u = unitsFor(food)
+  if (food.u === 'g' && !(food.sv || []).length) return { unit: 'g', qty: 100 }
+  return { unit: u[0].id, qty: 1 }
+}
+export function entryFromUnit(food, qty, unit, at, id) {
+  const per = food.u === 'g' ? (food.b || 100) : (food.b || 1)
+  const x = (qty * unit.per) / per
+  const desc = unit.id === 'g' || unit.id === 'oz' ? fmtQty(qty) + ' ' + unit.label : fmtQty(qty) + ' × ' + unit.label
+  return { id, at, name: food.n, desc, v: scaleVec(food.v, x) }
+}
+export const fmtQty = q => String(Math.round(q * 100) / 100)
+
+// ---------------------------------------------------------------- custom foods
+// Values are entered per serving or per 100 g; stored per 100 g with the serving weight.
+export function buildCustomFood({ id, name, brand = '', servingLabel = '1 serving', servingG = 100, basis = 'serving', values, extra = [] }) {
+  const g = Number(servingG) > 0 ? Number(servingG) : 100
+  const mul = basis === 'serving' ? 100 / g : 1
+  const v = zeros()
+  for (const k of KEYS) { const n = parseFloat(values[k]); if (Number.isFinite(n) && n >= 0) v[IDX[k]] = n * mul }
+  const sv = [{ l: (servingLabel || '1 serving').trim(), g }, ...extra.filter(e => e.l && Number(e.g) > 0).map(e => ({ l: e.l.trim(), g: Number(e.g) }))]
+  return { id, n: name.trim(), brand: brand.trim(), u: 'g', b: 100, sv, v, src: 'My foods', custom: true, hay: (name + ' ' + brand).toLowerCase() }
+}
+// The same food back as per-serving numbers for the editor.
+export function valuesPer(food, grams) {
+  const out = {}
+  KEYS.forEach((k, i) => { const x = (food.v[i] || 0) * grams / 100; if (x) out[k] = String(Math.round(x * 1000) / 1000) })
+  return out
+}
+
+// ---------------------------------------------------------------- Open Food Facts
+// OFF nutriments: *_100g in grams (kJ/kcal for energy). Converted to the units of KEYS.
+const OFF = {
+  p: ['proteins', 1], c: ['carbohydrates', 1], f: ['fat', 1], fib: ['fiber', 1], sug: ['sugars', 1], sat: ['saturated-fat', 1],
+  chol: ['cholesterol', 1e3], o3: ['omega-3-fat', 1], o6: ['omega-6-fat', 1],
+  va: ['vitamin-a', 1e6], b1: ['vitamin-b1', 1e3], b2: ['vitamin-b2', 1e3], b3: ['vitamin-pp', 1e3], b5: ['pantothenic-acid', 1e3],
+  b6: ['vitamin-b6', 1e3], b7: ['biotin', 1e6], b9: ['vitamin-b9', 1e6], b12: ['vitamin-b12', 1e6], c_: ['vitamin-c', 1e3],
+  d: ['vitamin-d', 1e6], e: ['vitamin-e', 1e3], kk: ['vitamin-k', 1e6],
+  ca: ['calcium', 1e3], fe: ['iron', 1e3], mg: ['magnesium', 1e3], ph: ['phosphorus', 1e3], kp: ['potassium', 1e3],
+  na: ['sodium', 1e3], zn: ['zinc', 1e3], cu: ['copper', 1e3], mn: ['manganese', 1e3], se: ['selenium', 1e6],
+}
+export function foodFromOFF(p) {
+  if (!p) return null
+  const name = (p.product_name || p.generic_name || '').trim()
+  if (!name) return null
+  const n = p.nutriments || {}
+  const num = k => { const x = Number(n[k]); return Number.isFinite(x) && x >= 0 ? x : null }
+  let kcal = num('energy-kcal_100g')
+  if (kcal == null) { const kj = num('energy_100g') ?? num('energy-kj_100g'); kcal = kj != null ? kj / 4.184 : null }
+  if (kcal == null) return null
+  const v = zeros()
+  v[0] = kcal
+  for (const [key, [off, mul]] of Object.entries(OFF)) { const x = num(off + '_100g'); if (x != null) v[IDX[key]] = x * mul }
+  if (!v[IDX.na]) { const salt = num('salt_100g'); if (salt != null) v[IDX.na] = salt * 400 }
+  if (v[0] > 900 || v[1] > 108 || v[2] > 108 || v[3] > 108) return null
+  const brand = String(p.brands || '').split(',')[0].trim()
+  const q = Number(p.serving_quantity)
+  const sv = q > 0 && q < 2000 ? [{ l: String(p.serving_size || q + ' g'), g: q }] : []
+  return { id: 'off' + (p.code || name), n: brand ? name + ' by ' + brand : name, u: 'g', b: 100, sv, ean: p.code || '', src: 'Open Food Facts', v, hay: (name + ' ' + brand).toLowerCase() }
+}
+export const looksLikeBarcode = s => /^\d{8,14}$/.test(String(s).trim())
