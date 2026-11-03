@@ -1,0 +1,154 @@
+/* Liquid glass theme for the whole app: html[data-glass="1"], on by default, switch off in Nutrition > Goals.
+   It re-points the colour tokens and adds blur, a specular top edge and a soft sheen; every screen keeps its own layout.
+   (No color-mix(): the repo needs a fallback for it on old Safari.) */
+/* tints: three light colours behind the glass (rgb triplets), chosen in Nutrition > Goals */
+html[data-glass="1"] { --g1: 10,132,255; --g2: 191,90,242; --g3: 255,55,95 }
+html[data-glass-tint="steel"] { --g1: 176,190,214; --g2: 118,128,150; --g3: 214,224,240 }
+html[data-glass-tint="sunset"] { --g1: 255,159,10; --g2: 255,55,95; --g3: 191,90,242 }
+html[data-glass-tint="ocean"] { --g1: 10,132,255; --g2: 64,200,224; --g3: 94,92,230 }
+html[data-glass-tint="forest"] { --g1: 48,209,88; --g2: 64,200,224; --g3: 255,214,10 }
+html[data-glass-tint="rose"] { --g1: 255,55,95; --g2: 191,90,242; --g3: 255,159,10 }
+html[data-glass-tint="graphite"] { --g1: 142,142,147; --g2: 99,99,102; --g3: 174,174,178 }
+html[data-glass="1"] body {
+  background:
+    radial-gradient(70% 45% at 8% -5%, rgba(var(--g1),.32), transparent 70%),
+    radial-gradient(60% 45% at 100% 22%, rgba(var(--g2),.26), transparent 70%),
+    radial-gradient(70% 50% at 30% 105%, rgba(var(--g3),.22), transparent 70%),
+    radial-gradient(50% 35% at 90% 85%, var(--acc-soft), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+html[data-glass="1"] {
+  --surface: rgba(255,255,255,.075);
+  --surface-2: rgba(255,255,255,.14);
+  --surface-3: rgba(255,255,255,.13);
+  --bg-el: rgba(26,26,34,.78);
+  --sep: rgba(255,255,255,.14);
+  --glass-edge: inset 0 1px 0 rgba(255,255,255,.34), inset 0 -1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(255,255,255,.09), 0 18px 40px rgba(0,0,0,.34);
+}
+html[data-glass="1"][data-theme="light"] body {
+  background:
+    radial-gradient(70% 45% at 8% -5%, rgba(var(--g1),.28), transparent 70%),
+    radial-gradient(60% 45% at 100% 22%, rgba(var(--g2),.2), transparent 70%),
+    radial-gradient(70% 50% at 30% 105%, rgba(var(--g3),.16), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+html[data-glass="1"][data-theme="light"] {
+  --surface: rgba(255,255,255,.58);
+  --surface-2: rgba(255,255,255,.82);
+  --surface-3: rgba(255,255,255,.7);
+  --bg-el: rgba(250,250,255,.86);
+  --sep: rgba(60,60,67,.14);
+  --glass-edge: inset 0 1px 0 rgba(255,255,255,.95), inset 0 0 0 1px rgba(255,255,255,.55), 0 16px 36px rgba(30,30,80,.12);
+}
+html[data-glass="1"] .card,
+html[data-glass="1"] .ng-tip {
+  position: relative;
+  -webkit-backdrop-filter: blur(26px) saturate(1.8);
+  backdrop-filter: blur(26px) saturate(1.8);
+  box-shadow: var(--glass-edge);
+  border: 0;
+  border-radius: 26px;
+}
+/* the sheen: a faint light catching the top-left of the glass */
+html[data-glass="1"] .card::before,
+html[data-glass="1"] .ng-tip::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(140deg, rgba(255,255,255,.16), rgba(255,255,255,0) 38%);
+}
+html[data-glass="1"] .card > *, html[data-glass="1"] .ng-tip > * { position: relative }
+html[data-glass="1"] .ng-sheet,
+html[data-glass="1"] .sheet,
+html[data-glass="1"] #tabbar {
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  backdrop-filter: blur(30px) saturate(1.8);
+  box-shadow: var(--glass-edge);
+}
+html[data-glass="1"] .ng-sheet { border-radius: 30px 30px 0 0 }
+html[data-glass="1"] #tabbar { background: var(--bg-el); border-top: 0 }
+html[data-glass="1"] .ng-seg { box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 0 0 1px rgba(255,255,255,.07); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px) }
+html[data-glass="1"] .ng-seg button.on { box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 2px 10px rgba(0,0,0,.25) }
+html[data-glass="1"] .ng-fab, html[data-glass="1"] .ng-btn { box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 10px 26px rgba(0,0,0,.35) }
+html[data-glass="1"] .ng-in { background: rgba(255,255,255,.07); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px) }
+@supports not (backdrop-filter: blur(1px)) { html[data-glass="1"] { --surface: var(--surface-2); --bg-el: #1c1c1e } }
+@media (prefers-reduced-transparency: reduce) {
+  html[data-glass="1"] .card, html[data-glass="1"] .ng-tip, html[data-glass="1"] .ng-sheet, html[data-glass="1"] .sheet, html[data-glass="1"] #tabbar { -webkit-backdrop-filter: none; backdrop-filter: none }
+}
+
+/* Steel: brushed-metal glass, bright specular edge, colour only in the data */
+html[data-glass="1"][data-glass-tint="steel"] { --surface: rgba(255,255,255,.1); --surface-2: rgba(255,255,255,.17); --surface-3: rgba(255,255,255,.15) }
+html[data-glass="1"][data-glass-tint="steel"][data-theme="light"] { --surface: rgba(255,255,255,.62); --surface-2: rgba(255,255,255,.85); --surface-3: rgba(255,255,255,.75) }
+html[data-glass="1"][data-glass-tint="steel"] .card::before, html[data-glass="1"][data-glass-tint="steel"] .ng-tip::before {
+  background: linear-gradient(135deg, rgba(255,255,255,.24), rgba(255,255,255,0) 40%, rgba(255,255,255,.05) 100%);
+}
+
+
+/* Refined liquid glass: restrained highlights, clearer depth and less GPU-heavy blur. */
+html[data-glass="1"] {
+  --glass-edge: inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 0 1px rgba(255,255,255,.055), 0 12px 30px rgba(0,0,0,.22);
+}
+html[data-glass="1"] body {
+  background:
+    radial-gradient(62% 38% at 4% -8%, rgba(var(--g1),.20), transparent 72%),
+    radial-gradient(52% 38% at 102% 16%, rgba(var(--g2),.15), transparent 72%),
+    radial-gradient(60% 42% at 50% 110%, rgba(var(--g3),.12), transparent 72%),
+    var(--bg);
+  background-attachment: fixed;
+}
+html[data-glass="1"] .card,
+html[data-glass="1"] .ng-tip {
+  -webkit-backdrop-filter: blur(16px) saturate(1.35);
+  backdrop-filter: blur(16px) saturate(1.35);
+  border: 1px solid rgba(255,255,255,.075);
+  border-radius: 22px;
+  box-shadow: var(--glass-edge);
+}
+html[data-glass="1"] .card::before,
+html[data-glass="1"] .ng-tip::before {
+  background: linear-gradient(145deg, rgba(255,255,255,.105), transparent 34%, rgba(255,255,255,.018) 100%);
+}
+html[data-glass="1"] .ng-sheet,
+html[data-glass="1"] .sheet,
+html[data-glass="1"] #tabbar {
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+}
+html[data-glass="1"] .ng-seg {
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.065);
+}
+html[data-glass="1"] .ng-seg button.on {
+  background: linear-gradient(180deg, rgba(255,255,255,.19), rgba(255,255,255,.09));
+  border: 1px solid rgba(255,255,255,.13);
+}
+html[data-glass="1"] .ng-fab,
+html[data-glass="1"] .ng-btn {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 8px 22px rgba(0,0,0,.28);
+}
+html[data-glass="1"][data-glass-tint="steel"] .card::before,
+html[data-glass="1"][data-glass-tint="steel"] .ng-tip::before {
+  background: linear-gradient(145deg, rgba(255,255,255,.15), transparent 38%, rgba(255,255,255,.025));
+}
+
+/* True-black AMOLED is independent of glass mode. */
+html[data-amoled="1"][data-theme="dark"] {
+  --bg: #000;
+  --bg-el: #080808;
+  --surface: rgba(255,255,255,.045);
+  --surface-2: rgba(255,255,255,.085);
+  --surface-3: rgba(255,255,255,.065);
+  --sep: rgba(255,255,255,.09);
+}
+html[data-amoled="1"][data-theme="dark"] body { background-color:#000; }
+html[data-amoled="1"][data-theme="dark"] .ng-sheet,
+html[data-amoled="1"][data-theme="dark"] .sheet { background:rgba(7,7,7,.96); }
+html[data-amoled="1"][data-theme="dark"] .card { border-color:rgba(255,255,255,.055); }
+@media (prefers-reduced-motion: reduce) {
+  html[data-glass="1"] *, .ng * { animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-glass="1"] .card, html[data-glass="1"] .ng-tip,
+  html[data-glass="1"] .ng-sheet, html[data-glass="1"] .sheet,
+  html[data-glass="1"] #tabbar { -webkit-backdrop-filter:none; backdrop-filter:none; }
+}
