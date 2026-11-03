@@ -3,14 +3,20 @@
 import { N, DEFAULT_GOALS } from './engine.js'
 
 const APP = 'openGym-nutrition'
-export const BACKUP_VERSION = 1
+export const BACKUP_VERSION = 3
 const isNum = x => typeof x === 'number' && Number.isFinite(x)
 const str = (x, max = 200) => (typeof x === 'string' ? x.slice(0, max) : '')
 const vec = v => (Array.isArray(v) && v.length <= N + 8 ? Array.from({ length: N }, (_, i) => (isNum(v[i]) && v[i] >= 0 && v[i] < 1e7 ? v[i] : 0)) : null)
 
 export function buildBackup(s, now = Date.now()) {
   return { app: APP, version: BACKUP_VERSION, exportedAt: new Date(now).toISOString(),
-    data: { entries: s.entries, water: s.water, recentFoods: s.recentFoods, customFoods: s.customFoods, goals: s.goals } }
+    data: {
+      entries: s.entries, water: s.water, recentFoods: s.recentFoods, customFoods: s.customFoods, goals: s.goals,
+      favorites: s.favorites || [], templates: s.templates || [], dayType: s.dayType || 'training',
+      trainingGoals: s.trainingGoals || s.goals, restGoals: s.restGoals || s.goals,
+      meet: s.meet || { enabled: false, date: '', weightClass: '', checklist: {} }, mealPhotos: s.mealPhotos || [],
+      neuroFuel: s.neuroFuel || {}, caffeine: s.caffeine || [],
+    } }
 }
 
 const cleanEntry = e => {
@@ -39,8 +45,31 @@ export function parseBackup(text) {
   const skipped = [entries, water, customFoods, recent].reduce((n, a) => n + a.filter(x => !x).length, 0)
   const goals = { ...DEFAULT_GOALS }
   for (const k of Object.keys(DEFAULT_GOALS)) if (isNum(d.goals?.[k]) && d.goals[k] > 0 && d.goals[k] < 100000) goals[k] = d.goals[k]
-  const out = { entries: entries.filter(Boolean), water: water.filter(Boolean), customFoods: customFoods.filter(Boolean), recentFoods: recent.filter(Boolean), goals, skipped }
-  if (!out.entries.length && !out.water.length && !out.customFoods.length) throw new Error('empty')
+  const cleanGoals = source => {
+    const out = { ...DEFAULT_GOALS }
+    for (const k of Object.keys(DEFAULT_GOALS)) if (isNum(source?.[k]) && source[k] > 0 && source[k] < 100000) out[k] = source[k]
+    return out
+  }
+  const cleanTemplates = list(d.templates, t => {
+    if (!t || typeof t.name !== 'string' || !Array.isArray(t.items)) return null
+    const items = t.items.filter(x => x && typeof x.name === 'string' && vec(x.v)).slice(0, 80)
+      .map(x => ({ name: str(x.name), desc: str(x.desc), meal: str(x.meal, 40), v: vec(x.v) }))
+    return items.length ? { id: str(t.id, 64) || Math.random().toString(36).slice(2, 10), name: str(t.name, 80), type: t.type === 'rest' ? 'rest' : 'training', items } : null
+  }).filter(Boolean)
+  const photos = list(d.mealPhotos, p => p && typeof p.data === 'string' && p.data.startsWith('data:image/') && p.data.length < 280000
+    ? { id: str(p.id, 64), day: str(p.day, 10), note: str(p.note, 120), data: p.data, at: isNum(p.at) ? p.at : Date.now() } : null).filter(Boolean).slice(-12)
+  const favorites = list(d.favorites, cleanFood).filter(Boolean).slice(0, 60)
+  const out = {
+    entries: entries.filter(Boolean), water: water.filter(Boolean), customFoods: customFoods.filter(Boolean),
+    recentFoods: recent.filter(Boolean), goals, favorites, templates: cleanTemplates,
+    dayType: d.dayType === 'rest' ? 'rest' : 'training',
+    trainingGoals: cleanGoals(d.trainingGoals), restGoals: cleanGoals(d.restGoals),
+    meet: { enabled: !!d.meet?.enabled, date: /^\d{4}-\d{2}-\d{2}$/.test(d.meet?.date || '') ? d.meet.date : '', weightClass: str(d.meet?.weightClass, 40), checklist: d.meet?.checklist && typeof d.meet.checklist === 'object' ? Object.fromEntries(Object.entries(d.meet.checklist).slice(0, 10).map(([k,v]) => [k, !!v])) : {} },
+    mealPhotos: photos,
+    neuroFuel: { sessionTime: /^\d{2}:\d{2}$/.test(d.neuroFuel?.sessionTime || '') ? d.neuroFuel.sessionTime : '16:30', bedtime: /^\d{2}:\d{2}$/.test(d.neuroFuel?.bedtime || '') ? d.neuroFuel.bedtime : '23:00', caffeineCutoffHours: isNum(d.neuroFuel?.caffeineCutoffHours) ? Math.max(4,Math.min(12,d.neuroFuel.caffeineCutoffHours)) : 8, caffeineHalfLife: isNum(d.neuroFuel?.caffeineHalfLife) ? Math.max(3,Math.min(10,d.neuroFuel.caffeineHalfLife)) : 5, caffeineLimit: isNum(d.neuroFuel?.caffeineLimit) ? Math.max(0,Math.min(1000,d.neuroFuel.caffeineLimit)) : 400, sleepHours: d.neuroFuel?.sleepHours === '' ? '' : (isNum(Number(d.neuroFuel?.sleepHours)) ? String(Math.max(0,Math.min(24,Number(d.neuroFuel.sleepHours)))) : ''), sleepQuality: ['unknown','poor','average','good'].includes(d.neuroFuel?.sleepQuality) ? d.neuroFuel.sleepQuality : 'unknown', sleepLoggedAt: isNum(d.neuroFuel?.sleepLoggedAt) ? d.neuroFuel.sleepLoggedAt : null },
+    caffeine: list(d.caffeine, x => x && typeof x.source === 'string' && isNum(x.at) && isNum(x.mg) && x.mg > 0 && x.mg <= 1000 ? { id: str(x.id,64) || Math.random().toString(36).slice(2,10), at:x.at, mg:x.mg, source:str(x.source,40) } : null).filter(Boolean).slice(-500), skipped,
+  }
+  if (!out.entries.length && !out.water.length && !out.customFoods.length && !out.caffeine.length) throw new Error('empty')
   return out
 }
 
@@ -53,6 +82,20 @@ export function mergeData(cur, inc) {
     customFoods: byId(cur.customFoods, inc.customFoods, true),
     recentFoods: byId(cur.recentFoods, inc.recentFoods, false).slice(0, 30),
     goals: cur.goals,
+    favorites: byId(cur.favorites || [], inc.favorites || [], true).slice(0, 60),
+    templates: byId(cur.templates || [], inc.templates || [], true).slice(0, 30),
+    dayType: cur.dayType || 'training',
+    trainingGoals: cur.trainingGoals || cur.goals,
+    restGoals: cur.restGoals || cur.goals,
+    meet: cur.meet || inc.meet || { enabled: false, date: '', weightClass: '', checklist: {} },
+    mealPhotos: [...(cur.mealPhotos || []), ...(inc.mealPhotos || [])].slice(-4),
+    neuroFuel: cur.neuroFuel || inc.neuroFuel || {}, caffeine: byId(cur.caffeine || [], inc.caffeine || [], false).slice(-500),
   }
 }
-export const replaceData = inc => ({ entries: inc.entries, water: inc.water, customFoods: inc.customFoods, recentFoods: inc.recentFoods, goals: inc.goals })
+export const replaceData = inc => ({
+  entries: inc.entries, water: inc.water, customFoods: inc.customFoods, recentFoods: inc.recentFoods,
+  goals: inc.goals, favorites: inc.favorites || [], templates: inc.templates || [],
+  dayType: inc.dayType || 'training', trainingGoals: inc.trainingGoals || inc.goals,
+  restGoals: inc.restGoals || inc.goals, meet: inc.meet || { enabled: false, date: '', weightClass: '', checklist: {} },
+  mealPhotos: inc.mealPhotos || [], neuroFuel: inc.neuroFuel || {}, caffeine: inc.caffeine || [],
+})

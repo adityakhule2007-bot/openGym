@@ -14,8 +14,8 @@ const url = name => new URL('nutrition/' + name, document.baseURI).href
 const r0 = n => Math.round(n)
 const fmt = x => (x >= 10 ? String(Math.round(x)) : x >= 1 ? String(Math.round(x * 10) / 10) : String(Math.round(x * 100) / 100))
 let coreCache = null, moreCache = null
-const loadCore = () => coreCache || (coreCache = fetch(url('foods-core.json')).then(r => r.json()))
-const loadMore = () => moreCache || (moreCache = fetch(url('foods-more.json')).then(r => r.json()).then(d => d.rows.map(foodFromRow)))
+const loadCore = () => coreCache || (coreCache = fetch(url('foods-core.json'), { cache: 'force-cache' }).then(r => r.json()))
+const loadMore = () => moreCache || (moreCache = fetch(url('foods-more.json'), { cache: 'force-cache' }).then(r => r.json()).then(d => d.rows.map(foodFromRow)))
 
 function blurb(f) {
   const sv = f.u === 'g' ? f.sv?.[0] : null
@@ -29,6 +29,9 @@ const Row = ({ f, onPick }) => <button className="ng-item" onClick={() => onPick
 function Detail({ food, day, onBack, onClose, onEdit }) {
   const addEntry = useNutrition(s => s.addEntry)
   const saveFood = useNutrition(s => s.saveFood)
+  const favorites = useNutrition(s => s.favorites)
+  const toggleFavorite = useNutrition(s => s.toggleFavorite)
+  const isFavorite = favorites.some(f => f.id === food.id)
   const mine = useNutrition(s => s.customFoods.some(c => c.id === food.id))
   const units = unitsFor(food)
   const d = defaultAmount(food)
@@ -71,7 +74,8 @@ function Detail({ food, day, onBack, onClose, onEdit }) {
       })}
       <p className="ng-muted">% of a general adult daily target{food.src === 'Open Food Facts' ? '. Packaged-food labels list only some nutrients, so the rest read as zero.' : '.'}</p>
     </div>}
-    {!mine && !food.custom && <button className="ng-link" onClick={() => { saveFood(food); }}>★ Save to My foods</button>}
+    <button className="ng-link" onClick={() => toggleFavorite(food)}>{isFavorite ? '★ Remove from favourites' : '☆ Add to favourites'}</button>
+    {!mine && !food.custom && <button className="ng-link" onClick={() => { saveFood(food); }}>Save to My foods</button>}
     {mine && <p className="ng-muted">In My foods ✓</p>}
   </div>
 }
@@ -79,6 +83,7 @@ function Detail({ food, day, onBack, onClose, onEdit }) {
 export default function FoodSheet({ day, onClose }) {
   const customFoods = useNutrition(s => s.customFoods)
   const recentFoods = useNutrition(s => s.recentFoods)
+  const favorites = useNutrition(s => s.favorites)
   const addEntry = useNutrition(s => s.addEntry)
   const saveFood = useNutrition(s => s.saveFood)
   const deleteFood = useNutrition(s => s.deleteFood)
@@ -143,8 +148,9 @@ export default function FoodSheet({ day, onClose }) {
         </div>
         {note && <p className="ng-muted">{note}</p>}
         <div className="ng-list">
+          {!q.trim() && favorites.length > 0 && <><div className="ng-sec">Favourites · one-tap access</div>{favorites.slice(0, 8).map(f => <Row key={'fav-' + f.id} f={f} onPick={setPick} />)}</>}
           {!q.trim() && recentFoods.length > 0 && <><div className="ng-sec">Recent</div>{recentFoods.slice(0, 12).map(f => <Row key={f.id} f={f} onPick={setPick} />)}</>}
-          {!q.trim() && !recentFoods.length && <p className="ng-muted">{core ? core.length : '…'} built-in foods and dishes (IFCT 2017), a ~40,000-item library, and Open Food Facts online. Search by name or scan a barcode.</p>}
+          {!q.trim() && !recentFoods.length && !favorites.length && <p className="ng-muted">{core ? core.length : '…'} built-in foods and dishes (IFCT 2017), a ~40,000-item library, and Open Food Facts online. Search by name or scan a barcode.</p>}
           {q.trim() && !looksLikeBarcode(q) && !results.length && core && <p className="ng-muted">Nothing found on this phone.</p>}
           {results.map(f => <Row key={f.id} f={f} onPick={setPick} />)}
           {q.trim().length >= 2 && !looksLikeBarcode(q) && online.s === 'idle' && <button className="ng-online" onClick={goOnline}>🌐 Search Open Food Facts for “{q.trim()}”<small>Sends your search text to openfoodfacts.org</small></button>}

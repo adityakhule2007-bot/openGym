@@ -1,17 +1,19 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore.js'
 import { effectiveRoutines } from '../lib/history.js'
+import { weighInAt } from '../lib/bodyweight.js'
 import { todayISO } from '../lib/format.js'
 import Icon from '../components/Icon.jsx'
 import { useNutrition } from '../lib/nutrition/store.js'
-import { applyGlass, glassOn, applyTint, getTint, TINTS } from '../lib/nutrition/glass.js'
+import { applyGlass, glassOn, applyTint, getTint, TINTS, applyAmoled, amoledOn, applyHaptics, hapticsOn } from '../lib/nutrition/glass.js'
 import { META, ORDER, GNAME, IDX, dayKey, hhmm, atOf, dayTotals, mealLabel, coachTips } from '../lib/nutrition/engine.js'
 import NutritionRings from './NutritionRings.jsx'
 import FoodSheet from './NutritionFoodSheet.jsx'
 import NutritionFuel from './NutritionFuel.jsx'
 import NutritionCharts from './NutritionCharts.jsx'
 import NutritionBackup from './NutritionBackup.jsx'
+import NeuroFuel from './NeuroFuel.jsx'
 import './nutrition.css'
 
 const r0 = n => Math.round(n)
@@ -22,11 +24,27 @@ export default function Nutrition() {
   const nav = useNavigate()
   const S = useStore(s => s.S)
   const { entries, water, goals, removeEntry, addWater, undoWater, setGoals } = useNutrition()
+  const dayType = useNutrition(s => s.dayType)
+  const setDayType = useNutrition(s => s.setDayType)
+  const templates = useNutrition(s => s.templates)
+  const addTemplate = useNutrition(s => s.addTemplate)
+  const removeTemplate = useNutrition(s => s.removeTemplate)
+  const addEntry = useNutrition(s => s.addEntry)
+  const meet = useNutrition(s => s.meet)
+  const setMeet = useNutrition(s => s.setMeet)
+  const mealPhotos = useNutrition(s => s.mealPhotos)
+  const addMealPhoto = useNutrition(s => s.addMealPhoto)
+  const removeMealPhoto = useNutrition(s => s.removeMealPhoto)
+  const photoInput = useRef(null)
+  const [templateName, setTemplateName] = useState('')
+  const [photoNote, setPhotoNote] = useState('')
   const [tab, setTab] = useState('today')
   const [day, setDay] = useState(todayISO())
   const [sheet, setSheet] = useState(false)
   const [glass, setGlass] = useState(glassOn())
   const [tint, setTint] = useState(getTint())
+  const [amoled, setAmoled] = useState(amoledOn())
+  const [haptics, setHaptics] = useState(hapticsOn())
   const [allTips, setAllTips] = useState(false)
   const isToday = day === todayISO()
 
@@ -45,6 +63,43 @@ export default function Nutrition() {
   for (const e of dayEntries) { const l = mealLabel(e.at); const g = groups.find(x => x.l === l); g ? g.items.push(e) : groups.push({ l, items: [e] }) }
   const dayRange = () => { const [y, m, d] = day.split('-').map(Number); return { from: new Date(y, m - 1, d).getTime(), to: new Date(y, m - 1, d + 1).getTime() } }
   const toggleGlass = () => { const on = !glass; setGlass(on); applyGlass(on) }
+  const saveCurrentTemplate = () => {
+    if (!dayEntries.length) return
+    const name = templateName.trim() || (dayType === 'training' ? 'Training day meals' : 'Rest day meals')
+    addTemplate({ name, type: dayType, items: dayEntries.map(e => ({ name: e.name, desc: e.desc, v: e.v.slice(), meal: mealLabel(e.at) })) })
+    setTemplateName('')
+  }
+  const applyTemplate = template => {
+    const now = atOf(day, '12:00')
+    template.items.forEach((e, i) => {
+      const mealTime = ({ 'Breakfast': '08:00', 'Lunch': '13:00', 'Snack': '16:30', 'Dinner': '19:30', 'Late night': '23:00' })[e.meal] || '12:00'
+      addEntry({ at: atOf(day, mealTime) + i * 1000, name: e.name, desc: e.desc, v: e.v.slice() })
+    })
+  }
+  const attachPhoto = async file => {
+    if (!file || !file.type.startsWith('image/')) return
+    try {
+      let data
+      if (window.createImageBitmap) {
+        const bmp = await createImageBitmap(file)
+        const scale = Math.min(1, 960 / Math.max(bmp.width, bmp.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(bmp.width * scale)); canvas.height = Math.max(1, Math.round(bmp.height * scale))
+        canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height)
+        data = canvas.toDataURL('image/jpeg', .66)
+        bmp.close?.()
+      } else {
+        data = await new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(file) })
+      }
+      if (data.length > 280000) { setPhotoNote('Image is too large after compression. Choose a smaller photo.'); return }
+      addMealPhoto({ day, note: photoNote.trim(), data })
+      setPhotoNote('')
+    } catch { setPhotoNote('Could not attach this image. Try another photo.') }
+  }
+  const recentWeighIns = (S.bodyweight || []).filter(b => weighInAt(b) >= Date.now() - 7 * 86400000)
+  const weighAvg = recentWeighIns.length ? recentWeighIns.reduce((a, b) => a + Number(b.w || 0), 0) / recentWeighIns.length : null
+  const latestWeighIn = S.bodyweight?.length ? S.bodyweight[S.bodyweight.length - 1] : null
+  const daysToMeet = meet.date ? Math.ceil((new Date(meet.date + 'T00:00:00').getTime() - new Date(todayISO() + 'T00:00:00').getTime()) / 86400000) : null
   const label = isToday ? 'Today' : new Date(atOf(day, '12:00')).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })
   const waterAt = () => (isToday ? Date.now() : atOf(day, '12:00'))
 
@@ -57,10 +112,17 @@ export default function Nutrition() {
       </div>
     </div>
 
-    <div className="ng-seg">{[['today', 'Diary'], ['fuel', 'Fuel'], ['trends', 'Trends'], ['micros', 'Nutrients']].map(([k, l]) =>
+    <div className="ng-seg nf-tabs">{[['today', 'Diary'], ['neuro', 'NeuroFuel'], ['fuel', 'Fuel'], ['trends', 'Trends'], ['micros', 'Nutrients'], ['meet', 'Meet']].map(([k, l]) =>
       <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
 
     {tab === 'today' && <>
+      <div className="ng-daytype">
+        <span>Nutrition profile</span>
+        <div className="ng-seg compact">
+          <button className={dayType === 'training' ? 'on' : ''} onClick={() => setDayType('training')}>Training</button>
+          <button className={dayType === 'rest' ? 'on' : ''} onClick={() => setDayType('rest')}>Rest</button>
+        </div>
+      </div>
       <div className="ng-daynav">
         <button className="iconbtn" onClick={() => setDay(addDays(day, -1))} aria-label="Previous day"><Icon name="chevronLeft" /></button>
         <span>{label}</span>
@@ -84,6 +146,34 @@ export default function Nutrition() {
         <div className="ng-track"><i className="w" style={{ width: Math.min(100, dayWater / goals.water * 100) + '%' }} /></div>
       </div>
 
+      <div className="card ng-tools">
+        <div className="ng-mealhd"><b>Quick actions</b><span>Less tapping, faster logging</span></div>
+        <input className="ng-in ng-photo-note" placeholder="Template name (optional)" value={templateName} onChange={e => setTemplateName(e.target.value)} />
+        <div className="ng-toolrow">
+          <button className="ng-chip" onClick={() => setSheet(true)}>＋ Quick log</button>
+          <button className="ng-chip ghost" onClick={saveCurrentTemplate} disabled={!dayEntries.length}>Save day as template</button>
+          <button className="ng-chip ghost" onClick={() => photoInput.current?.click()}>＋ Meal photo</button>
+        </div>
+        <input ref={photoInput} type="file" accept="image/*" capture="environment" hidden onChange={e => { attachPhoto(e.target.files?.[0]); e.target.value = '' }} />
+        <input className="ng-in ng-photo-note" placeholder="Photo note (optional)" value={photoNote} onChange={e => setPhotoNote(e.target.value)} />
+        {templates.length > 0 && <div className="ng-template-list">
+          <div className="ng-sec">Saved meal templates</div>
+          {templates.slice(0, 5).map(t => <div className="ng-template" key={t.id}>
+            <div><b>{t.name}</b><small>{t.items.length} foods · {t.type === 'rest' ? 'Rest day' : 'Training day'}</small></div>
+            <button className="ng-chip" onClick={() => applyTemplate(t)}>Add</button>
+            <button className="iconbtn" onClick={() => removeTemplate(t.id)} aria-label="Delete template"><Icon name="xmark" /></button>
+          </div>)}
+        </div>}
+      </div>
+      {mealPhotos.filter(p => p.day === day).length > 0 && <div className="card ng-photo-grid">
+        <div className="ng-mealhd"><b>Meal photos</b><span>{mealPhotos.filter(p => p.day === day).length}</span></div>
+        <div className="ng-photos">{mealPhotos.filter(p => p.day === day).map(p => <div key={p.id}>
+          <img src={p.data} alt={p.note || 'Meal photo'} loading="lazy" />
+          <small>{p.note || 'Meal photo'}</small>
+          <button className="ng-link danger" onClick={() => removeMealPhoto(p.id)}>Remove</button>
+        </div>)}</div>
+      </div>}
+
       {groups.map(g => <div className="card ng-meal" key={g.l}>
         <div className="ng-mealhd"><b>{g.l}</b><span>{r0(g.items.reduce((a, e) => a + e.v[0], 0))} kcal</span></div>
         {g.items.map(e => <div className="ng-entry" key={e.id}>
@@ -97,8 +187,9 @@ export default function Nutrition() {
       <button className="ng-fab" onClick={() => setSheet(true)} aria-label="Add food"><Icon name="plus" /></button>
     </>}
 
+    {tab === 'neuro' && <NeuroFuel S={S} entries={entries} goals={goals} bodyKg={bodyKg} plannedToday={plannedToday} />}
     {tab === 'fuel' && <NutritionFuel S={S} bodyKg={bodyKg} carbsToday={tot[IDX.c]} carbGoal={goals.c} onAdd={() => setSheet(true)} />}
-    {tab === 'trends' && <NutritionCharts entries={entries} water={water} endDay={todayISO()} goals={goals} />}
+    {tab === 'trends' && <NutritionCharts entries={entries} water={water} endDay={todayISO()} goals={goals} bodyweight={S.bodyweight || []} unit={unit} />}
 
     {tab === 'micros' && <>{Object.keys(ORDER).map(g => <div className="card" key={g}>
       <div className="ng-sec first">{GNAME[g]}</div>
@@ -110,6 +201,27 @@ export default function Nutrition() {
     </div>)}
       <p className="ng-muted">Targets are general adult values. Packaged foods list only some nutrients, and sodium counts only what is in logged foods (not table salt).</p></>}
 
+    {tab === 'meet' && <div className="ng-meet">
+      <div className="card ng-meet-hero">
+        <div className="ng-sec first">Competition mode</div>
+        <h2>{meet.enabled ? 'Meet week workspace' : 'Prepare for competition'}</h2>
+        <p className="ng-muted">A focused view for weigh-ins, meal consistency and competition logistics. It does not prescribe dehydration or rapid weight cuts.</p>
+        <label className="ng-toggle"><input type="checkbox" checked={!!meet.enabled} onChange={e => setMeet({ enabled: e.target.checked })} /> Enable meet mode</label>
+        <label className="ng-f"><span>Competition date</span><input className="ng-in" type="date" value={meet.date || ''} onChange={e => setMeet({ date: e.target.value })} /></label>
+        <label className="ng-f"><span>Weight class (optional)</span><input className="ng-in" placeholder="e.g. 59 kg" value={meet.weightClass || ''} onChange={e => setMeet({ weightClass: e.target.value })} /></label>
+        {daysToMeet !== null && <div className="ng-countdown"><b>{daysToMeet < 0 ? 'Meet completed' : daysToMeet === 0 ? 'Competition day' : daysToMeet}</b><span>{daysToMeet > 0 ? 'days remaining' : daysToMeet < 0 ? 'days ago' : 'Today'}</span></div>}
+      </div>
+      <div className="card">
+        <div className="ng-mealhd"><b>Meet-week checklist</b><span>Tick off as needed</span></div>
+        {latestWeighIn && <div className="ng-weight-snapshot">
+          <div><small>Latest weigh-in</small><b>{Number(latestWeighIn.w).toFixed(1)} {unit}</b></div>
+          <div><small>7-day average</small><b>{weighAvg === null ? '—' : weighAvg.toFixed(1) + ' ' + unit}</b></div>
+          <div><small>Entries</small><b>{recentWeighIns.length}/7</b></div>
+        </div>}
+        {['Confirm weigh-in and lifting schedule','Keep familiar foods and meals available','Prepare food, fluids and competition kit','Record morning bodyweight consistently','Avoid untested supplements or last-minute food changes'].map((x, i) => <label className="ng-check" key={x}><input type="checkbox" checked={!!meet.checklist?.[i]} onChange={e => setMeet({ checklist: { ...(meet.checklist || {}), [i]: e.target.checked } })} />{x}</label>)}
+      </div>
+    </div>}
+
     {tab === 'goals' && <>
       <div className="card ng-form">
         {[['kcal', 'Calories'], ['p', 'Protein (g)'], ['c', 'Carbs (g)'], ['f', 'Fat (g)'], ['water', 'Water (ml)']].map(([k, l]) =>
@@ -117,6 +229,9 @@ export default function Nutrition() {
       </div>
       <div className="card ng-form">
         <label className="ng-toggle"><input type="checkbox" checked={glass} onChange={toggleGlass} /> Liquid glass theme for the whole app</label>
+        <label className="ng-toggle"><input type="checkbox" checked={amoled} onChange={e => { setAmoled(e.target.checked); applyAmoled(e.target.checked) }} /> True-black AMOLED surfaces</label>
+        <label className="ng-toggle"><input type="checkbox" checked={haptics} onChange={e => { setHaptics(e.target.checked); applyHaptics(e.target.checked) }} /> Subtle haptic feedback</label>
+        <p className="ng-muted">AMOLED mode uses deeper blacks while keeping glass effects and your chosen tint. Disable it for softer dark surfaces.</p>
         <div className="ng-tints" role="radiogroup" aria-label="Glass tint">{TINTS.map(t => <button key={t.id} role="radio" aria-checked={tint === t.id} className={tint === t.id ? 'on' : ''}
           onClick={() => { setTint(t.id); applyTint(t.id) }} aria-label={t.label}>
           <span style={{ background: `conic-gradient(from 200deg, ${t.sw[0]}, ${t.sw[1]}, ${t.sw[2]}, ${t.sw[0]})` }} /><small>{t.label}</small></button>)}</div>

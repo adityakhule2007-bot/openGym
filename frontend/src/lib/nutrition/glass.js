@@ -23,3 +23,16 @@ export function applyTint(id) {
   document.documentElement.dataset.glassTint = id
   try { localStorage.setItem(TKEY, id) } catch { /* ignore */ }
 }
+
+// AMOLED is an independent display preference: true-black surfaces, without forcing glass off.
+const AMOLED_KEY = 'opengym:amoled'
+export const amoledOn = () => { try { return localStorage.getItem(AMOLED_KEY) === '1' } catch { return false } }
+export function applyAmoled(on) {
+  if (on) document.documentElement.dataset.amoled = '1'
+  else delete document.documentElement.dataset.amoled
+  try { localStorage.setItem(AMOLED_KEY, on ? '1' : '0') } catch { /* ignore */ }
+}
+
+const HAPTIC_KEY = 'opengym:haptics'
+export const hapticsOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== '0' } catch { return true } }
+export function applyHaptics(on) { try { localStorage.setItem(HAPTIC_KEY, on ? '1' : '0') } catch { /* ignore */ } }
