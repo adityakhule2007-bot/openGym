@@ -24,7 +24,7 @@ export default function NutritionBackup() {
       if (MOBILE) await shareExport(json, name)
       else { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000) }
       const d = new Date().toLocaleDateString(); try { localStorage.setItem(LAST, d) } catch { /* ignore */ } setLast(d)
-      setMsg(`Backup exported: ${count(s.entries.length, 'meal')}, ${count(s.customFoods.length, 'food')}.`)
+      setMsg(`Backup exported: ${count(s.entries.length, 'meal')}, ${count(s.customFoods.length, 'food')}, ${count((s.caffeine || []).length, 'caffeine entry')}.`)
     } catch { setMsg('') /* share sheet dismissed */ }
   }
   const onFile = async ev => {
@@ -36,10 +36,10 @@ export default function NutritionBackup() {
   const apply = mode => {
     const st = useNutrition.getState()
     st.setData(mode === 'merge' ? mergeData(st, pending) : replaceData(pending))
-    setMsg(`Imported ${count(pending.entries.length, 'meal')}, ${count(pending.customFoods.length, 'food')}${pending.skipped ? ` (${pending.skipped} unreadable rows skipped)` : ''}.`)
+    setMsg(`Imported ${count(pending.entries.length, 'meal')}, ${count(pending.customFoods.length, 'food')}, ${count((pending.caffeine || []).length, 'caffeine entry')}${pending.skipped ? ` (${pending.skipped} unreadable rows skipped)` : ''}.`)
     setPending(null)
   }
-  const hasData = useNutrition(s => s.entries.length + s.customFoods.length) > 0
+  const hasData = useNutrition(s => s.entries.length + s.customFoods.length + (s.caffeine || []).length) > 0
 
   return <div className="card ng-form ng-backup">
     <div className="ng-cardhd"><b>Diet backup</b><small>{last ? 'Last: ' + last : 'Never exported'}</small></div>
@@ -52,7 +52,7 @@ export default function NutritionBackup() {
     <input ref={file} type="file" accept="application/json,.json" hidden onChange={onFile} />
     {pending && <div className="ng-pending">
       <b>Backup found</b>
-      <small>{count(pending.entries.length, 'meal')} · {count(pending.water.length, 'water entry', 'water entries')} · {count(pending.customFoods.length, 'food')}</small>
+      <small>{count(pending.entries.length, 'meal')} · {count(pending.water.length, 'water entry', 'water entries')} · {count(pending.customFoods.length, 'food')} · {count((pending.caffeine || []).length, 'caffeine entry')}</small>
       <div className="ng-row">
         <button className="ng-btn" onClick={() => apply('merge')}>Merge</button>
         <button className="ng-btn ghost" onClick={() => apply('replace')}>Replace all</button>

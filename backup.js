@@ -3,7 +3,7 @@
 import { N, DEFAULT_GOALS } from './engine.js'
 
 const APP = 'openGym-nutrition'
-export const BACKUP_VERSION = 2
+export const BACKUP_VERSION = 3
 const isNum = x => typeof x === 'number' && Number.isFinite(x)
 const str = (x, max = 200) => (typeof x === 'string' ? x.slice(0, max) : '')
 const vec = v => (Array.isArray(v) && v.length <= N + 8 ? Array.from({ length: N }, (_, i) => (isNum(v[i]) && v[i] >= 0 && v[i] < 1e7 ? v[i] : 0)) : null)
@@ -15,6 +15,7 @@ export function buildBackup(s, now = Date.now()) {
       favorites: s.favorites || [], templates: s.templates || [], dayType: s.dayType || 'training',
       trainingGoals: s.trainingGoals || s.goals, restGoals: s.restGoals || s.goals,
       meet: s.meet || { enabled: false, date: '', weightClass: '', checklist: {} }, mealPhotos: s.mealPhotos || [],
+      neuroFuel: s.neuroFuel || {}, caffeine: s.caffeine || [],
     } }
 }
 
@@ -64,9 +65,11 @@ export function parseBackup(text) {
     dayType: d.dayType === 'rest' ? 'rest' : 'training',
     trainingGoals: cleanGoals(d.trainingGoals), restGoals: cleanGoals(d.restGoals),
     meet: { enabled: !!d.meet?.enabled, date: /^\d{4}-\d{2}-\d{2}$/.test(d.meet?.date || '') ? d.meet.date : '', weightClass: str(d.meet?.weightClass, 40), checklist: d.meet?.checklist && typeof d.meet.checklist === 'object' ? Object.fromEntries(Object.entries(d.meet.checklist).slice(0, 10).map(([k,v]) => [k, !!v])) : {} },
-    mealPhotos: photos, skipped,
+    mealPhotos: photos,
+    neuroFuel: { sessionTime: /^\d{2}:\d{2}$/.test(d.neuroFuel?.sessionTime || '') ? d.neuroFuel.sessionTime : '16:30', bedtime: /^\d{2}:\d{2}$/.test(d.neuroFuel?.bedtime || '') ? d.neuroFuel.bedtime : '23:00', caffeineCutoffHours: isNum(d.neuroFuel?.caffeineCutoffHours) ? Math.max(4,Math.min(12,d.neuroFuel.caffeineCutoffHours)) : 8, caffeineHalfLife: isNum(d.neuroFuel?.caffeineHalfLife) ? Math.max(3,Math.min(10,d.neuroFuel.caffeineHalfLife)) : 5, caffeineLimit: isNum(d.neuroFuel?.caffeineLimit) ? Math.max(0,Math.min(1000,d.neuroFuel.caffeineLimit)) : 400, sleepHours: d.neuroFuel?.sleepHours === '' ? '' : (isNum(Number(d.neuroFuel?.sleepHours)) ? String(Math.max(0,Math.min(24,Number(d.neuroFuel.sleepHours)))) : ''), sleepQuality: ['unknown','poor','average','good'].includes(d.neuroFuel?.sleepQuality) ? d.neuroFuel.sleepQuality : 'unknown', sleepLoggedAt: isNum(d.neuroFuel?.sleepLoggedAt) ? d.neuroFuel.sleepLoggedAt : null },
+    caffeine: list(d.caffeine, x => x && typeof x.source === 'string' && isNum(x.at) && isNum(x.mg) && x.mg > 0 && x.mg <= 1000 ? { id: str(x.id,64) || Math.random().toString(36).slice(2,10), at:x.at, mg:x.mg, source:str(x.source,40) } : null).filter(Boolean).slice(-500), skipped,
   }
-  if (!out.entries.length && !out.water.length && !out.customFoods.length) throw new Error('empty')
+  if (!out.entries.length && !out.water.length && !out.customFoods.length && !out.caffeine.length) throw new Error('empty')
   return out
 }
 
@@ -86,6 +89,7 @@ export function mergeData(cur, inc) {
     restGoals: cur.restGoals || cur.goals,
     meet: cur.meet || inc.meet || { enabled: false, date: '', weightClass: '', checklist: {} },
     mealPhotos: [...(cur.mealPhotos || []), ...(inc.mealPhotos || [])].slice(-4),
+    neuroFuel: cur.neuroFuel || inc.neuroFuel || {}, caffeine: byId(cur.caffeine || [], inc.caffeine || [], false).slice(-500),
   }
 }
 export const replaceData = inc => ({
@@ -93,5 +97,5 @@ export const replaceData = inc => ({
   goals: inc.goals, favorites: inc.favorites || [], templates: inc.templates || [],
   dayType: inc.dayType || 'training', trainingGoals: inc.trainingGoals || inc.goals,
   restGoals: inc.restGoals || inc.goals, meet: inc.meet || { enabled: false, date: '', weightClass: '', checklist: {} },
-  mealPhotos: inc.mealPhotos || [],
+  mealPhotos: inc.mealPhotos || [], neuroFuel: inc.neuroFuel || {}, caffeine: inc.caffeine || [],
 })

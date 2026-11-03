@@ -13,6 +13,7 @@ import FoodSheet from './NutritionFoodSheet.jsx'
 import NutritionFuel from './NutritionFuel.jsx'
 import NutritionCharts from './NutritionCharts.jsx'
 import NutritionBackup from './NutritionBackup.jsx'
+import NeuroFuel from './NeuroFuel.jsx'
 import './nutrition.css'
 
 const r0 = n => Math.round(n)
@@ -111,7 +112,7 @@ export default function Nutrition() {
       </div>
     </div>
 
-    <div className="ng-seg">{[['today', 'Diary'], ['fuel', 'Fuel'], ['trends', 'Trends'], ['micros', 'Nutrients'], ['meet', 'Meet']].map(([k, l]) =>
+    <div className="ng-seg nf-tabs">{[['today', 'Diary'], ['neuro', 'NeuroFuel'], ['fuel', 'Fuel'], ['trends', 'Trends'], ['micros', 'Nutrients'], ['meet', 'Meet']].map(([k, l]) =>
       <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>)}</div>
 
     {tab === 'today' && <>
@@ -186,6 +187,7 @@ export default function Nutrition() {
       <button className="ng-fab" onClick={() => setSheet(true)} aria-label="Add food"><Icon name="plus" /></button>
     </>}
 
+    {tab === 'neuro' && <NeuroFuel S={S} entries={entries} goals={goals} bodyKg={bodyKg} plannedToday={plannedToday} />}
     {tab === 'fuel' && <NutritionFuel S={S} bodyKg={bodyKg} carbsToday={tot[IDX.c]} carbGoal={goals.c} onAdd={() => setSheet(true)} />}
     {tab === 'trends' && <NutritionCharts entries={entries} water={water} endDay={todayISO()} goals={goals} bodyweight={S.bodyweight || []} unit={unit} />}
 

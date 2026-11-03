@@ -9,6 +9,8 @@ const EMPTY = {
   favorites: [], templates: [], dayType: 'training',
   trainingGoals: DEFAULT_GOALS, restGoals: DEFAULT_GOALS,
   meet: { enabled: false, date: '', weightClass: '' }, mealPhotos: [],
+  neuroFuel: { sessionTime: '16:30', bedtime: '23:00', caffeineCutoffHours: 8, caffeineHalfLife: 5, caffeineLimit: 400, sleepHours: '', sleepQuality: 'unknown', notes: '' },
+  caffeine: [],
 }
 const load = () => {
   try {
@@ -20,13 +22,15 @@ const load = () => {
       trainingGoals: { ...DEFAULT_GOALS, ...s.trainingGoals },
       restGoals: { ...EMPTY.restGoals, ...s.restGoals },
       meet: { ...EMPTY.meet, ...s.meet },
-      mealPhotos: Array.isArray(s.mealPhotos) ? s.mealPhotos : [] }
+      mealPhotos: Array.isArray(s.mealPhotos) ? s.mealPhotos : [],
+      neuroFuel: { ...EMPTY.neuroFuel, ...(s.neuroFuel || {}) },
+      caffeine: Array.isArray(s.caffeine) ? s.caffeine.filter(x => x && Number.isFinite(x.at) && Number.isFinite(x.mg) && x.mg > 0 && x.mg <= 1000) : [] }
   } catch { /* start empty */ }
   return { ...EMPTY }
 }
 const save = s => { try { localStorage.setItem(KEY, JSON.stringify({ entries: s.entries, water: s.water, recentFoods: s.recentFoods, customFoods: s.customFoods, goals: s.goals, favorites: s.favorites, templates: s.templates,
   dayType: s.dayType, trainingGoals: s.trainingGoals, restGoals: s.restGoals,
-  meet: s.meet, mealPhotos: s.mealPhotos })) } catch { /* quota: keep in memory */ } }
+  meet: s.meet, mealPhotos: s.mealPhotos, neuroFuel: s.neuroFuel, caffeine: s.caffeine })) } catch { /* quota: keep in memory */ } }
 const uid = () => Math.random().toString(36).slice(2, 10)
 const strip = f => { const { hay, ...rest } = f; return rest }
 const haptic = () => { try { if (localStorage.getItem('opengym:haptics') !== '0') navigator.vibrate?.(8) } catch { /* optional */ } }
@@ -68,6 +72,9 @@ export const useNutrition = create((set, get) => ({
   },
   removeTemplate: id => { set({ templates: get().templates.filter(t => t.id !== id) }); save(get()) },
   setMeet: meet => { set({ meet: { ...get().meet, ...meet } }); save(get()) },
+  setNeuroFuel: config => { set({ neuroFuel: { ...get().neuroFuel, ...config } }); save(get()) },
+  addCaffeine: item => { const caffeine = [...get().caffeine, { id: uid(), at: Date.now(), source: 'Other', ...item }].slice(-500); set({ caffeine }); save(get()) },
+  removeCaffeine: id => { set({ caffeine: get().caffeine.filter(x => x.id !== id) }); save(get()) },
   addMealPhoto: photo => { set({ mealPhotos: [...get().mealPhotos, { ...photo, id: uid(), at: Date.now() }].slice(-4) }); save(get()) },
   removeMealPhoto: id => { set({ mealPhotos: get().mealPhotos.filter(p => p.id !== id) }); save(get()) },
   // My foods: custom foods and any food saved from search / Open Food Facts.
