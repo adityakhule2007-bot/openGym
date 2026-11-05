@@ -9,11 +9,14 @@ export default function CustomFoodForm({ initial, onSave, onCancel, onDelete }) 
   const editing = !!initial?.custom
   const [name, setName] = useState(initial?.n || '')
   const [brand, setBrand] = useState(initial?.brand || '')
-  const [sLabel, setSLabel] = useState(initial?.sv?.[0]?.l || '1 serving')
+  const perServing = Array.isArray(initial?.v) && initial.u === 's'   // an Open Food Facts food that is per serving, weight unknown
+  const [sLabel, setSLabel] = useState(initial?.sv?.[0]?.l || (perServing && initial.s) || '1 serving')
   const [sG, setSG] = useState(String(initial?.sv?.[0]?.g || 100))
   const [extra, setExtra] = useState((initial?.sv || []).slice(1).map(x => ({ l: x.l, g: String(x.g) })))
-  const [basis, setBasis] = useState(editing ? '100' : 'serving')
-  const [vals, setVals] = useState(editing ? valuesPer(initial, 100) : {})
+  // An existing food (mine, or an Open Food Facts one being corrected) opens with its values per 100 g; a new one starts empty, per serving.
+  const hasValues = Array.isArray(initial?.v)
+  const [basis, setBasis] = useState(hasValues && !perServing ? '100' : 'serving')
+  const [vals, setVals] = useState(hasValues ? valuesPer(initial, 100) : {})
   const [open, setOpen] = useState({})
   const [err, setErr] = useState('')
   const set = (k, v) => setVals(o => ({ ...o, [k]: v }))
@@ -27,15 +30,16 @@ export default function CustomFoodForm({ initial, onSave, onCancel, onDelete }) 
       const p = parseFloat(v.p) || 0, c = parseFloat(v.c) || 0, f = parseFloat(v.f) || 0
       if (p + c + f > 0) v.k = String(Math.round(4 * p + 4 * c + 9 * f)); else return setErr('Enter the calories (or protein, carbs and fat).')
     }
-    onSave(buildCustomFood({ id: initial?.id, name: n, brand, servingLabel: sLabel, servingG: sG, basis, values: v, extra }))
+    onSave(buildCustomFood({ id: initial?.id, name: n, brand, servingLabel: sLabel, servingG: sG, basis, values: v, extra, ean: initial?.ean }))
   }
   const field = (k, label, unit) => <label className="ng-f" key={k}><span>{label}<i>{unit}</i></span>
     <input className="ng-in" inputMode="decimal" value={vals[k] ?? ''} onChange={e => set(k, e.target.value)} /></label>
 
   return <div className="ng-form">
-    <div className="ng-sheet-hd"><button className="iconbtn" onClick={onCancel} aria-label="Back"><Icon name="chevronLeft" /></button><b>{editing ? 'Edit food' : 'New custom food'}</b><span style={{ width: 36 }} /></div>
+    <div className="ng-sheet-hd"><button className="iconbtn" onClick={onCancel} aria-label="Back"><Icon name="chevronLeft" /></button><b>{editing ? 'Edit food' : initial?.ean ? 'Add product' : 'New custom food'}</b><span style={{ width: 36 }} /></div>
     <input className="ng-in" placeholder="Name (e.g. Homemade protein bar)" value={name} onChange={e => setName(e.target.value)} />
     <input className="ng-in" placeholder="Brand (optional)" value={brand} onChange={e => setBrand(e.target.value)} />
+    {initial?.ean && <p className="ng-muted">Barcode {initial.ean} is saved with this food, so scanning it finds it next time. Copy the numbers from the pack’s nutrition panel (supplements: the per-serving column, with the scoop weight in grams as the serving size).</p>}
 
     <div className="ng-sec">Serving size</div>
     <div className="ng-grid2">

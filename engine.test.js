@@ -49,7 +49,7 @@ describe('search', () => {
   it('keys a day by local date', () => { expect(dayKey(at(23, 59))).toBe('2026-10-31') })
 })
 
-import { unitsFor, defaultAmount, entryFromUnit, buildCustomFood, valuesPer, foodFromOFF, looksLikeBarcode, KEYS } from './engine.js'
+import { unitsFor, defaultAmount, entryFromUnit, buildCustomFood, valuesPer, foodFromOFF, draftFromOFF, looksLikeBarcode, KEYS } from './engine.js'
 
 describe('servings', () => {
   const oats = { id: 'o', n: 'Oats', u: 'g', b: 100, sv: [{ l: '1 cup (80 g)', g: 80 }], v: Array.from({ length: N }, (_, i) => (i === 0 ? 380 : i === 1 ? 13 : 0)) }
@@ -135,5 +135,36 @@ describe('serving foods with a stated weight', () => {
   it('does not offer grams when the weight is an ingredient, or absent', () => {
     expect(unitsFor(mk('1 medium (35 g atta)')).map(x => x.id)).toEqual(['s0'])
     expect(unitsFor(mk('1 katori')).map(x => x.id)).toEqual(['s0'])
+  })
+})
+
+describe('supplements on Open Food Facts', () => {
+  it('uses the per-serving column when there is no per-100g one, scaled by the serving weight', () => {
+    const f = foodFromOFF({ product_name: 'Whey', brands: 'Acme', code: '890', serving_size: '1 scoop (33 g)', serving_quantity: 33,
+      nutriments: { 'energy-kcal_serving': 130, proteins_serving: 24, carbohydrates_serving: 3, fat_serving: 2 } })
+    expect(f.u).toBe('g'); expect(f.v[0]).toBeCloseTo(130 / 0.33, 1); expect(f.v[IDX.p]).toBeCloseTo(24 / 0.33, 1)
+    expect(f.sv).toEqual([{ l: '1 scoop (33 g)', g: 33 }])
+    const per = unitsFor(f); expect(entryFromUnit(f, 1, per[0], 1, 'a').v[0]).toBeCloseTo(130, 0)
+    expect(f.partial).toBe(false)
+  })
+  it('keeps a per-serving food when the serving weight is unknown', () => {
+    const f = foodFromOFF({ product_name: 'Pre-workout', serving_size: '1 scoop', nutriments: { 'energy-kcal_serving': 10, carbohydrates_serving: 2 } })
+    expect(f.u).toBe('s'); expect(f.s).toBe('1 scoop'); expect(f.v[0]).toBe(10)
+    expect(entryFromUnit(f, 2, unitsFor(f)[0], 1, 'a').v[0]).toBe(20)
+  })
+  it('works energy out from the macros when it is missing, and says so', () => {
+    const f = foodFromOFF({ product_name: 'BCAA', nutriments: { proteins_100g: 80, carbohydrates_100g: 5, fat_100g: 1 } })
+    expect(f.v[0]).toBe(4 * 85 + 9); expect(f.partial).toBe(true)
+  })
+  it('accepts a zero-calorie supplement that lists only some nutrients, and flags energy without macros', () => {
+    const c = foodFromOFF({ product_name: 'Creatine', nutriments: { sodium_100g: 0.01 } })
+    expect(c.v[0]).toBe(0); expect(c.partial).toBe(true)
+    const m = foodFromOFF({ product_name: 'Gummy', nutriments: { 'energy-kcal_100g': 300 } })
+    expect(m.partial).toBe(true)
+  })
+  it('still rejects products with nothing listed, and builds a draft for a custom food', () => {
+    expect(foodFromOFF({ product_name: 'Empty', nutriments: {} })).toBeNull()
+    expect(draftFromOFF({ product_name: ' Gold Standard ', brands: 'ON, Foo', code: '123', serving_size: '1 scoop (31 g)', serving_quantity: 31 }))
+      .toEqual({ n: 'Gold Standard', brand: 'ON', ean: '123', sv: [{ l: '1 scoop (31 g)', g: 31 }] })
   })
 })

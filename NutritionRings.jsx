@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useCountUp } from '../lib/nutrition/motion.js'
 
 // Apple-Activity-style concentric rings: one per macro, a hairline ring for calories outside them.
 // Past 100% a ring laps over itself with a soft shadow, like the Activity rings do.
@@ -20,6 +21,7 @@ export default function NutritionRings({ kcal, kcalGoal, macros }) {
   const [on, setOn] = useState(false)
   useEffect(() => { const id = requestAnimationFrame(() => setOn(true)); return () => cancelAnimationFrame(id) }, [])
   const left = Math.round(kcalGoal - kcal)
+  const shown = Math.round(useCountUp(Math.abs(left)))
   const over = left < 0
   const kfrac = on ? kcal / Math.max(1, kcalGoal) : 0
   const KC = 2 * Math.PI * 112
@@ -42,16 +44,16 @@ export default function NutritionRings({ kcal, kcalGoal, macros }) {
         })}
       </svg>
       <div className="ng-ringtxt">
-        <b className={over ? 'over' : ''}>{Math.abs(left).toLocaleString()}</b>
+        <b className={over ? 'over' : ''}>{shown.toLocaleString()}</b>
         <small>{over ? 'kcal over' : 'kcal left'}</small>
       </div>
     </div>
     <div className="ng-legend">
       {RINGS.map(g => {
         const m = macros.find(x => x.key === g.key), rem = Math.round(m.goal - m.value)
-        return <div key={g.key} className="ng-lg">
+        return <div key={g.key} className={'ng-lg' + (rem <= 0 ? ' done' : '')}>
           <span className="ng-dot" style={{ background: `linear-gradient(135deg, ${g.a}, ${g.b})` }} />
-          <div><small>{g.label}</small><b>{Math.round(m.value)}<i> / {m.goal} g</i></b><em>{rem >= 0 ? rem + ' g left' : -rem + ' g over'}</em></div>
+          <div><small>{g.label}{rem <= 0 && <u aria-label="goal reached"> ✓</u>}</small><b>{Math.round(m.value)}<i> / {m.goal} g</i></b><em>{rem >= 0 ? rem + ' g left' : -rem + ' g over'}</em></div>
         </div>
       })}
     </div>

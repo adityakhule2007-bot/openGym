@@ -240,13 +240,13 @@ export const fmtQty = q => String(Math.round(q * 100) / 100)
 
 // ---------------------------------------------------------------- custom foods
 // Values are entered per serving or per 100 g; stored per 100 g with the serving weight.
-export function buildCustomFood({ id, name, brand = '', servingLabel = '1 serving', servingG = 100, basis = 'serving', values, extra = [] }) {
+export function buildCustomFood({ id, name, brand = '', servingLabel = '1 serving', servingG = 100, basis = 'serving', values, extra = [], ean = '' }) {
   const g = Number(servingG) > 0 ? Number(servingG) : 100
   const mul = basis === 'serving' ? 100 / g : 1
   const v = zeros()
   for (const k of KEYS) { const n = parseFloat(values[k]); if (Number.isFinite(n) && n >= 0) v[IDX[k]] = n * mul }
   const sv = [{ l: (servingLabel || '1 serving').trim(), g }, ...extra.filter(e => e.l && Number(e.g) > 0).map(e => ({ l: e.l.trim(), g: Number(e.g) }))]
-  return { id, n: name.trim(), brand: brand.trim(), u: 'g', b: 100, sv, v, src: 'My foods', custom: true, hay: (name + ' ' + brand).toLowerCase() }
+  return { id, n: name.trim(), brand: brand.trim(), u: 'g', b: 100, sv, v, ean: String(ean || '').replace(/\D/g, '').slice(0, 14), src: 'My foods', custom: true, hay: (name + ' ' + brand).toLowerCase() }
 }
 // The same food back as per-serving numbers for the editor.
 export function valuesPer(food, grams) {
@@ -266,23 +266,47 @@ const OFF = {
   ca: ['calcium', 1e3], fe: ['iron', 1e3], mg: ['magnesium', 1e3], ph: ['phosphorus', 1e3], kp: ['potassium', 1e3],
   na: ['sodium', 1e3], zn: ['zinc', 1e3], cu: ['copper', 1e3], mn: ['manganese', 1e3], se: ['selenium', 1e6],
 }
+// One column of an OFF nutriments object ("_100g" or "_serving") as a nutrient vector. kcal is null when no energy is listed.
+function pullOFF(n, suf) {
+  const num = k => { const x = Number(n[k + suf]); return Number.isFinite(x) && x >= 0 ? x : null }
+  const v = zeros()
+  let any = false, kcal = num('energy-kcal')
+  if (kcal == null) { const kj = num('energy') ?? num('energy-kj'); kcal = kj != null ? kj / 4.184 : null }
+  for (const [key, [off, mul]] of Object.entries(OFF)) { const x = num(off); if (x != null) { v[IDX[key]] = x * mul; any = true } }
+  if (!v[IDX.na]) { const salt = num('salt'); if (salt != null) { v[IDX.na] = salt * 400; any = true } }
+  return { v, kcal, any }
+}
+// Supplements are often listed per serving only, with no energy, or with only some nutrients. So: per 100 g when the label has
+// it; otherwise the per-serving column (scaled to 100 g when the serving weight is known, else kept as a per-serving food);
+// energy missing but macros present is worked out (4/4/9) and flagged `partial`, as is energy without any macros.
 export function foodFromOFF(p) {
   if (!p) return null
   const name = (p.product_name || p.generic_name || '').trim()
   if (!name) return null
   const n = p.nutriments || {}
-  const num = k => { const x = Number(n[k]); return Number.isFinite(x) && x >= 0 ? x : null }
-  let kcal = num('energy-kcal_100g')
-  if (kcal == null) { const kj = num('energy_100g') ?? num('energy-kj_100g'); kcal = kj != null ? kj / 4.184 : null }
-  if (kcal == null) return null
-  const v = zeros()
+  const q = Number(p.serving_quantity), servingG = q > 0 && q < 2000 ? q : 0
+  let { v, kcal, any } = pullOFF(n, '_100g')
+  let perServing = false
+  if (kcal == null && !any) {
+    const s = pullOFF(n, '_serving')
+    if (s.kcal == null && !s.any) return null
+    if (servingG) { const k = 100 / servingG; v = s.v.map(x => x * k); kcal = s.kcal == null ? null : s.kcal * k } else { v = s.v; kcal = s.kcal; perServing = true }
+  }
+  let partial = false
+  if (kcal == null) { kcal = 4 * (v[1] + v[2]) + 9 * v[3]; partial = true }
   v[0] = kcal
-  for (const [key, [off, mul]] of Object.entries(OFF)) { const x = num(off + '_100g'); if (x != null) v[IDX[key]] = x * mul }
-  if (!v[IDX.na]) { const salt = num('salt_100g'); if (salt != null) v[IDX.na] = salt * 400 }
-  if (v[0] > 900 || v[1] > 108 || v[2] > 108 || v[3] > 108) return null
+  if (!partial && kcal > 0 && v[1] + v[2] + v[3] === 0) partial = true
+  if (perServing ? (v[0] > 3000 || v[1] > 500 || v[2] > 500 || v[3] > 500) : (v[0] > 900 || v[1] > 108 || v[2] > 108 || v[3] > 108)) return null
   const brand = String(p.brands || '').split(',')[0].trim()
+  const base = { id: 'off' + (p.code || name), n: brand ? name + ' by ' + brand : name, ean: p.code || '', src: 'Open Food Facts', v, partial, hay: (name + ' ' + brand).toLowerCase() }
+  if (perServing) return { ...base, u: 's', b: 1, s: String(p.serving_size || '1 serving').slice(0, 80), sv: [] }
+  return { ...base, u: 'g', b: 100, sv: servingG ? [{ l: String(p.serving_size || servingG + ' g'), g: servingG }] : [] }
+}
+// What a product page offers for a pre-filled "new custom food" when its nutrition is missing: name, brand, serving, barcode.
+export function draftFromOFF(p) {
+  if (!p) return null
+  const name = (p.product_name || p.generic_name || '').trim()
   const q = Number(p.serving_quantity)
-  const sv = q > 0 && q < 2000 ? [{ l: String(p.serving_size || q + ' g'), g: q }] : []
-  return { id: 'off' + (p.code || name), n: brand ? name + ' by ' + brand : name, u: 'g', b: 100, sv, ean: p.code || '', src: 'Open Food Facts', v, hay: (name + ' ' + brand).toLowerCase() }
+  return { n: name, brand: String(p.brands || '').split(',')[0].trim(), ean: String(p.code || ''), sv: q > 0 && q < 2000 ? [{ l: String(p.serving_size || q + ' g'), g: q }] : [] }
 }
 export const looksLikeBarcode = s => /^\d{8,14}$/.test(String(s).trim())

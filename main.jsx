@@ -12,6 +12,7 @@ import './coach.css'
 import './index.css'
 import './glass.css'
 import { applyGlass, glassOn, applyTint, getTint, applyAmoled, amoledOn } from './lib/nutrition/glass.js'
+import { applyMotion, motionOn } from './lib/nutrition/motion.js'
 import { hideBoot, handOverFromLaunchScreen } from './lib/boot.js'
 
 // App.jsx restores per-route scroll itself; the browser's own attempt races it.
@@ -21,7 +22,8 @@ handOverFromLaunchScreen()
 
 if (glassOn()) applyGlass(true)
 applyTint(getTint())
-applyAmoled(amoledOn())
+if (amoledOn()) applyAmoled(true)
+if (!motionOn()) applyMotion(false)
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
 

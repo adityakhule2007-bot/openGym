@@ -6,6 +6,15 @@ export function applyGlass(on) {
   try { localStorage.setItem(KEY, on ? '1' : '0') } catch { /* ignore */ }
 }
 
+// AMOLED black: with the dark theme, true black backgrounds (pixels switched off on an OLED screen such as the OnePlus 12R),
+// dim glass cards and no coloured light behind them. It has no effect in the light theme. Light/Dark/System itself is openGym's own setting.
+const AKEY = 'opengym:amoled'
+export const amoledOn = () => { try { return localStorage.getItem(AKEY) === '1' } catch { return false } }
+export function applyAmoled(on) {
+  if (on) document.documentElement.dataset.amoled = '1'; else delete document.documentElement.dataset.amoled
+  try { localStorage.setItem(AKEY, on ? '1' : '0') } catch { /* ignore */ }
+}
+
 // Glass tint: the colours of the soft light behind the glass. rgb triplets live in glass.css per data-glass-tint.
 export const TINTS = [
   { id: 'steel', label: 'Steel', sw: ['#d5dce8', '#8e99ab', '#f1f4fa'] },
@@ -23,16 +32,3 @@ export function applyTint(id) {
   document.documentElement.dataset.glassTint = id
   try { localStorage.setItem(TKEY, id) } catch { /* ignore */ }
 }
-
-// AMOLED is an independent display preference: true-black surfaces, without forcing glass off.
-const AMOLED_KEY = 'opengym:amoled'
-export const amoledOn = () => { try { return localStorage.getItem(AMOLED_KEY) === '1' } catch { return false } }
-export function applyAmoled(on) {
-  if (on) document.documentElement.dataset.amoled = '1'
-  else delete document.documentElement.dataset.amoled
-  try { localStorage.setItem(AMOLED_KEY, on ? '1' : '0') } catch { /* ignore */ }
-}
-
-const HAPTIC_KEY = 'opengym:haptics'
-export const hapticsOn = () => { try { return localStorage.getItem(HAPTIC_KEY) !== '0' } catch { return true } }
-export function applyHaptics(on) { try { localStorage.setItem(HAPTIC_KEY, on ? '1' : '0') } catch { /* ignore */ } }

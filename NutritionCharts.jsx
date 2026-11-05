@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { dailySeries, averageOf } from '../lib/nutrition/trends.js'
-import { dayKey, mealLabel } from '../lib/nutrition/engine.js'
 
 const W = 340, H = 150, PX = 8, PT = 10, PB = 22
 const r0 = n => Math.round(n)
@@ -54,38 +53,18 @@ function Bars({ days, series, goalLine, unit }) {
 const MACRO = [{ key: 'p', a: '#64d2ff', b: '#0a84ff', label: 'Protein' }, { key: 'c', a: '#ffd479', b: '#ff9f0a', label: 'Carbs' }, { key: 'f', a: '#e8b4ff', b: '#bf5af2', label: 'Fat' }]
 const WATER = [{ key: 'w', a: '#8be9ff', b: '#30b0ff' }]
 
-export default function NutritionCharts({ entries, water, endDay, goals, bodyweight = [], unit = 'kg' }) {
+export default function NutritionCharts({ entries, water, endDay, goals }) {
   const [n, setN] = useState(7)
   const days = useMemo(() => dailySeries(entries, water, endDay, n), [entries, water, endDay, n])
   const kd = useMemo(() => Object.assign(days.map(d => ({ ...d })), { goal: goals.kcal }), [days, goals.kcal])
   const wd = useMemo(() => days.map(d => ({ ...d, w: d.water / 1000 })), [days])
   const logged = days.filter(d => d.logged).length
-  const adherence = days.filter(d => d.logged && d.k >= goals.kcal * .9 && d.k <= goals.kcal * 1.1).length
-  const start = days[0]?.day, end = days[days.length - 1]?.day
-  const proteinByMeal = entries.filter(e => { const d = dayKey(e.at); return d >= start && d <= end })
-    .reduce((a, e) => { const k = mealLabel(e.at); a[k] = (a[k] || 0) + (e.v[1] || 0); return a }, {})
-  const latestWeight = bodyweight.length ? Number(bodyweight[bodyweight.length - 1].w) : null
-  const previousWeight = bodyweight.length > 1 ? Number(bodyweight[bodyweight.length - 2].w) : null
   return <>
     <div className="ng-seg ng-range">{[7, 14].map(v => <button key={v} className={n === v ? 'on' : ''} onClick={() => setN(v)}>{v} days</button>)}</div>
     <div className="ng-stats">
       <div className="card"><small>Avg calories</small><b>{r0(averageOf(days, 'k')).toLocaleString()}</b></div>
       <div className="card"><small>Avg protein</small><b>{r0(averageOf(days, 'p'))} g</b></div>
       <div className="card"><small>Days logged</small><b>{logged}/{n}</b></div>
-    </div>
-    <div className="card ng-insights">
-      <div className="ng-cardhd"><b>Nutrition consistency</b><small>{n}-day view</small></div>
-      <div className="ng-insight-line"><span>Days within ±10% calorie target</span><b>{adherence}/{logged || 0}</b></div>
-      <div className="ng-insight-line"><span>Protein target average</span><b>{r0(averageOf(days, 'p'))} / {goals.p} g</b></div>
-      {latestWeight !== null && <div className="ng-insight-line"><span>Latest bodyweight</span><b>{latestWeight.toFixed(1)} {unit}{previousWeight !== null ? ` · ${previousWeight > latestWeight ? '−' : '+'}${Math.abs(latestWeight - previousWeight).toFixed(1)}` : ''}</b></div>}
-      <p className="ng-muted">Adherence is calculated only from days with logged food; it is a tracking signal, not a judgement or a target to compensate for.</p>
-    </div>
-    <div className="card ng-insights">
-      <div className="ng-cardhd"><b>Protein distribution</b><small>total across {n} days</small></div>
-      {['Breakfast', 'Lunch', 'Snack', 'Dinner', 'Late night'].map(meal => {
-        const v = proteinByMeal[meal] || 0
-        return <div className="ng-insight-line" key={meal}><span>{meal}</span><b>{r0(v)} g</b></div>
-      })}
     </div>
     <div className="card"><div className="ng-cardhd"><b>Calories</b><small>per day</small></div><LineArea days={kd} /></div>
     <div className="card"><div className="ng-cardhd"><b>Macro intake</b><small>grams per day</small></div>
